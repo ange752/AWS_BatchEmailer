@@ -1,0 +1,13 @@
+Hello,
+
+This is a plain text email example. You can format it however you like.
+
+Here are some formatting tips:
+- Use blank lines to separate paragraphs
+- Use dashes or asterisks for bullet points
+- Keep lines to about 72-80 characters for better readability
+- Use ALL CAPS sparingly (it looks like shouting)
+
+Best regards,
+Your Name
+

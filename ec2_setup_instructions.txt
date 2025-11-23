@@ -1,0 +1,51 @@
+EC2 Instance Setup Instructions
+================================
+
+Instance Details:
+  Instance ID: i-0462951dc6f221468
+  Public IP: 35.166.193.105
+  Instance Type: t3.small
+  Region: us-west-2
+
+Next Steps:
+1. Wait 1-2 minutes for instance to fully initialize
+2. SSH into the instance:
+   ssh -i oasis-dev-20220131.pem ec2-user@35.166.193.105
+
+3. Once connected, run these commands:
+
+   # Update system
+   sudo yum update -y
+
+   # Install Python and dependencies
+   sudo yum install -y python3 python3-pip
+   pip3 install boto3 botocore
+
+   # Install AWS CLI
+   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+   unzip awscliv2.zip
+   sudo ./aws/install
+
+   # Create emailer directory
+   mkdir -p ~/emailer
+   cd ~/emailer
+
+   # Download script from S3
+   aws s3 cp s3://amaze-aws-emailer/scripts/ses_emailer.py .
+
+   # Make executable
+   chmod +x ses_emailer.py
+
+4. Upload your script to S3 first (from local machine):
+   aws s3 cp ses_emailer.py s3://amaze-aws-emailer/scripts/ses_emailer.py
+
+5. Create send script (see EC2_SETUP_GUIDE.md for details)
+
+To stop instance:
+  aws ec2 stop-instances --instance-ids i-0462951dc6f221468 --region us-west-2
+
+To start instance:
+  aws ec2 start-instances --instance-ids i-0462951dc6f221468 --region us-west-2
+
+To terminate instance:
+  aws ec2 terminate-instances --instance-ids i-0462951dc6f221468 --region us-west-2

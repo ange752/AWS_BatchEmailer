@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# AWS Credentials & Config (NEVER COMMIT THESE!)
+.aws/
+*.pem
+*.key
+aws-credentials.txt
+lambda_config.json
+
+# Recipient Lists (Contains Personal Data - DO NOT COMMIT!)
+*.csv
+!recipients_example.csv
+!recipients_example.json
+!recipients_simple.csv
+!recipients_with_names.csv
+
+# Lambda Package (Too large, should be built)
+lambda_package/
+lambda-deployment.zip
+*.zip
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Large binary files
+*.pkg
+AWSCLIV2.pkg
+
