@@ -150,26 +150,49 @@ class SESEmailer:
         use_bcc: bool = True,
         rate_limit: float = 0.1,  # seconds between batches (10 emails/second = 0.1s)
         reply_to: Optional[List[str]] = None,
-        sender_name: Optional[str] = None
+        sender_name: Optional[str] = None,
+        personalized: bool = False,
+        recipient_data: Optional[List[Dict[str, str]]] = None,
+        generic_greeting: Optional[str] = None
     ) -> Dict:
         """
         Send emails in batches with rate limiting and BCC support
         
         Args:
             sender: Verified sender email address
-            recipients: List of recipient email addresses
-            subject: Email subject
-            body_text: Plain text email body
-            body_html: HTML email body (optional)
+            recipients: List of recipient email addresses (or list of dicts with 'email' key if personalized)
+            subject: Email subject (can contain placeholders like [NAME] if personalized=True)
+            body_text: Plain text email body (can contain placeholders like [NAME] if personalized=True)
+            body_html: HTML email body (optional, can contain placeholders if personalized=True)
             batch_size: Number of recipients per batch (default: 50)
             use_bcc: Use BCC to protect recipient privacy (default: True)
             rate_limit: Seconds to wait between batches (default: 0.1 = 10 batches/second)
             reply_to: List of reply-to email addresses (optional)
+            personalized: If True, replace placeholders like [NAME] with recipient data
+            recipient_data: List of dicts with recipient data (required if personalized=True)
+            generic_greeting: Generic greeting to use when name is not available (e.g., "Hi There!")
             
         Returns:
             Dictionary with success status and batch results
         """
-        total_recipients = len(recipients)
+        # Normalize recipients to list of dicts if personalized
+        if personalized:
+            if not recipient_data:
+                # If recipients are already dicts, use them; otherwise create dicts
+                if recipients and isinstance(recipients[0], dict):
+                    recipient_data = recipients
+                else:
+                    recipient_data = [{'email': r, 'name': ''} for r in recipients]
+            recipients_list = [r['email'] for r in recipient_data]
+        else:
+            # Convert recipients to list if needed
+            if recipients and isinstance(recipients[0], dict):
+                recipients_list = [r['email'] for r in recipients]
+            else:
+                recipients_list = recipients
+            recipient_data = [{'email': r, 'name': ''} for r in recipients_list]
+        
+        total_recipients = len(recipients_list)
         total_batches = (total_recipients + batch_size - 1) // batch_size
         
         print(f"\n📧 Batch Sending Configuration:")
@@ -177,6 +200,7 @@ class SESEmailer:
         print(f"  Batch size: {batch_size}")
         print(f"  Total batches: {total_batches}")
         print(f"  Use BCC: {use_bcc}")
+        print(f"  Personalized: {personalized}")
         print(f"  Rate limit: {1/rate_limit:.1f} batches/second\n")
         
         results = []
@@ -186,7 +210,8 @@ class SESEmailer:
         for batch_num in range(total_batches):
             start_idx = batch_num * batch_size
             end_idx = min(start_idx + batch_size, total_recipients)
-            batch_recipients = recipients[start_idx:end_idx]
+            batch_recipients = recipients_list[start_idx:end_idx]
+            batch_recipient_data = recipient_data[start_idx:end_idx]
             
             print(f"📦 Batch {batch_num + 1}/{total_batches} ({len(batch_recipients)} recipients)...")
             
@@ -195,13 +220,25 @@ class SESEmailer:
                     # For BCC privacy, send individual emails so each recipient only sees their own address
                     batch_success = 0
                     batch_fail = 0
-                    for recipient in batch_recipients:
+                    for i, recipient in enumerate(batch_recipients):
+                        # Personalize content if enabled
+                        personalized_subject = subject
+                        personalized_body_text = body_text
+                        personalized_body_html = body_html
+                        
+                        if personalized:
+                            recipient_info = batch_recipient_data[i]
+                            personalized_subject = replace_template_placeholders(subject, recipient_info, generic_greeting)
+                            personalized_body_text = replace_template_placeholders(body_text, recipient_info, generic_greeting)
+                            if body_html:
+                                personalized_body_html = replace_template_placeholders(body_html, recipient_info, generic_greeting)
+                        
                         result = self.send_email(
                             sender=sender,
                             recipients=[recipient],  # Individual recipient
-                            subject=subject,
-                            body_text=body_text,
-                            body_html=body_html,
+                            subject=personalized_subject,
+                            body_text=personalized_body_text,
+                            body_html=personalized_body_html,
                             reply_to=reply_to,
                             bcc=None,  # No BCC needed since it's individual
                             sender_name=sender_name
@@ -230,16 +267,60 @@ class SESEmailer:
                     })
                 else:
                     # Send to all recipients in batch (they'll see each other)
-                    result = self.send_email(
-                        sender=sender,
-                        recipients=batch_recipients,
-                        subject=subject,
-                        body_text=body_text,
-                        body_html=body_html,
-                        reply_to=reply_to,
-                        bcc=None,
-                        sender_name=sender_name
-                    )
+                    # Note: If personalized, we still need to send individually
+                    if personalized:
+                        # For personalized emails, send individually even without BCC
+                        batch_success = 0
+                        batch_fail = 0
+                        for i, recipient in enumerate(batch_recipients):
+                            recipient_info = batch_recipient_data[i]
+                            personalized_subject = replace_template_placeholders(subject, recipient_info, generic_greeting)
+                            personalized_body_text = replace_template_placeholders(body_text, recipient_info, generic_greeting)
+                            personalized_body_html = replace_template_placeholders(body_html, recipient_info, generic_greeting) if body_html else None
+                            
+                            result = self.send_email(
+                                sender=sender,
+                                recipients=[recipient],
+                                subject=personalized_subject,
+                                body_text=personalized_body_text,
+                                body_html=personalized_body_html,
+                                reply_to=reply_to,
+                                bcc=None,
+                                sender_name=sender_name
+                            )
+                            if result['success']:
+                                batch_success += 1
+                            else:
+                                batch_fail += 1
+                            time.sleep(0.07)  # Small delay between sends
+                        
+                        if batch_fail == 0:
+                            success_count += batch_success
+                            print(f"  ✓ Batch {batch_num + 1} sent successfully ({batch_success} emails)")
+                        else:
+                            success_count += batch_success
+                            fail_count += batch_fail
+                            print(f"  ⚠ Batch {batch_num + 1} completed: {batch_success} success, {batch_fail} failed")
+                        
+                        results.append({
+                            'batch': batch_num + 1,
+                            'recipients': batch_recipients,
+                            'success': batch_fail == 0,
+                            'successful': batch_success,
+                            'failed': batch_fail
+                        })
+                    else:
+                        # Non-personalized - send to all at once
+                        result = self.send_email(
+                            sender=sender,
+                            recipients=batch_recipients,
+                            subject=subject,
+                            body_text=body_text,
+                            body_html=body_html,
+                            reply_to=reply_to,
+                            bcc=None,
+                            sender_name=sender_name
+                        )
                     
                     if result['success']:
                         success_count += len(batch_recipients)
@@ -662,15 +743,74 @@ def preview_email(
     print("=" * 70)
 
 
-def load_recipients_from_file(file_path: str) -> List[str]:
+def replace_template_placeholders(text: str, recipient_data: Dict[str, str], generic_greeting: Optional[str] = None) -> str:
+    """
+    Replace template placeholders in text with recipient data
+    
+    Args:
+        text: Text with placeholders like [NAME], [EMAIL], [GREETING]
+        recipient_data: Dictionary with recipient data (e.g., {'name': 'John', 'email': 'john@example.com'})
+        generic_greeting: Generic greeting to use when name is not available (e.g., "Hi There!")
+        
+    Returns:
+        Text with placeholders replaced
+    """
+    result = text
+    email = recipient_data.get('email', '').strip()
+    
+    # Replace [NAME] with recipient name, or use email address as fallback, or generic greeting
+    name = recipient_data.get('name', '').strip()
+    if not name and email:
+        # Extract name from email (part before @) and format it nicely
+        email_local = email.split('@')[0] if '@' in email else email
+        # Remove dots, underscores, and numbers, then capitalize
+        name = email_local.replace('.', ' ').replace('_', ' ').replace('-', ' ')
+        # Capitalize first letter of each word
+        name = ' '.join(word.capitalize() for word in name.split() if word and not word.isdigit())
+        # If still empty or just numbers, use the original email local part
+        if not name or name.strip() == '':
+            name = email_local.split('.')[0].capitalize()  # Use first part before first dot
+    
+    # Replace [NAME] placeholder - use name if available, otherwise use generic greeting as fallback
+    if name:
+        name_replacement = name
+    elif generic_greeting:
+        # If no name but generic greeting provided, use it for [NAME] placeholder
+        name_replacement = generic_greeting
+    else:
+        name_replacement = ''
+    
+    result = result.replace('[NAME]', name_replacement)
+    result = result.replace('[name]', name_replacement)
+    
+    # Replace [GREETING] placeholder - use name if available, otherwise generic greeting
+    if '[GREETING]' in result or '[greeting]' in result:
+        if name:
+            greeting = f"Hi {name}!"
+        elif generic_greeting:
+            greeting = generic_greeting
+        else:
+            greeting = "Hi!"
+        result = result.replace('[GREETING]', greeting)
+        result = result.replace('[greeting]', greeting)
+    
+    # Replace [EMAIL] with recipient email
+    result = result.replace('[EMAIL]', email)
+    result = result.replace('[email]', email)
+    
+    return result
+
+
+def load_recipients_from_file(file_path: str, include_names: bool = False) -> List[str]:
     """
     Load recipients from a CSV or JSON file
     
     Args:
         file_path: Path to the CSV or JSON file
+        include_names: If True, returns list of dicts with 'email' and 'name' keys
         
     Returns:
-        List of email addresses
+        List of email addresses (or list of dicts if include_names=True)
     """
     file_ext = os.path.splitext(file_path)[1].lower()
     
@@ -684,7 +824,8 @@ def load_recipients_from_file(file_path: str) -> List[str]:
                 f.seek(0)
                 
                 # Check if first line looks like a header
-                has_header = first_line.lower() in ['email', 'e-mail', 'email_address', 'emailaddress']
+                has_header = first_line.lower() in ['email', 'e-mail', 'email_address', 'emailaddress'] or \
+                            any(col.lower() in first_line.lower() for col in ['email', 'name'])
                 
                 # For single-column CSV, we can use comma or newline as delimiter
                 # Try to detect delimiter from the file
@@ -705,6 +846,9 @@ def load_recipients_from_file(file_path: str) -> List[str]:
                     if isinstance(row, dict):
                         # CSV with header - look for common email column names
                         email = None
+                        name = None
+                        
+                        # Find email column
                         for col in ['email', 'Email', 'EMAIL', 'e-mail', 'E-mail', 'email_address', 'EmailAddress']:
                             if col in row and row[col]:
                                 email = row[col].strip()
@@ -713,12 +857,29 @@ def load_recipients_from_file(file_path: str) -> List[str]:
                         # If no standard column found, use first column
                         if not email:
                             email = list(row.values())[0].strip() if row.values() else None
+                        
+                        # Find name column if include_names is True
+                        if include_names:
+                            for col in ['name', 'Name', 'NAME', 'first_name', 'First Name', 'firstname', 'FirstName']:
+                                if col in row and row[col]:
+                                    name = row[col].strip()
+                                    break
+                            # If no name found, try second column
+                            if not name and len(row) > 1:
+                                values = list(row.values())
+                                if len(values) > 1:
+                                    name = values[1].strip() if values[1] else None
                     else:
-                        # CSV without header - use first column
+                        # CSV without header - use first column for email
                         email = row[0].strip() if row else None
+                        # Use second column for name if available
+                        name = row[1].strip() if include_names and len(row) > 1 and row[1] else None
                     
                     if email and '@' in email:
-                        recipients.append(email)
+                        if include_names:
+                            recipients.append({'email': email, 'name': name or ''})
+                        else:
+                            recipients.append(email)
             
             if not recipients:
                 print("Warning: No valid email addresses found in CSV file")
@@ -735,9 +896,27 @@ def load_recipients_from_file(file_path: str) -> List[str]:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if isinstance(data, list):
-                    recipients = [r if isinstance(r, str) else r['email'] for r in data]
+                    if include_names:
+                        recipients = []
+                        for r in data:
+                            if isinstance(r, str):
+                                recipients.append({'email': r, 'name': ''})
+                            elif isinstance(r, dict):
+                                recipients.append({'email': r.get('email', ''), 'name': r.get('name', '')})
+                        return recipients
+                    else:
+                        recipients = [r if isinstance(r, str) else r['email'] for r in data]
                 elif isinstance(data, dict) and 'recipients' in data:
-                    recipients = data['recipients']
+                    if include_names:
+                        recipients = []
+                        for r in data['recipients']:
+                            if isinstance(r, str):
+                                recipients.append({'email': r, 'name': ''})
+                            elif isinstance(r, dict):
+                                recipients.append({'email': r.get('email', ''), 'name': r.get('name', '')})
+                        return recipients
+                    else:
+                        recipients = data['recipients']
                 else:
                     print("Error: JSON file must contain a list or dict with 'recipients' key")
                     sys.exit(1)
@@ -770,7 +949,11 @@ def load_recipients_from_file(file_path: str) -> List[str]:
                     reader = csv.reader(f)
                     for row in reader:
                         if row and '@' in row[0]:
-                            recipients.append(row[0].strip())
+                            if include_names:
+                                name = row[1].strip() if len(row) > 1 and row[1] else ''
+                                recipients.append({'email': row[0].strip(), 'name': name})
+                            else:
+                                recipients.append(row[0].strip())
                 return recipients
             except Exception as e:
                 print(f"Error: Could not parse file as JSON or CSV: {e}")
@@ -834,6 +1017,8 @@ Examples:
     parser.add_argument('--use-bcc', action='store_true', default=True, help='Use BCC to protect recipient privacy (default: True)')
     parser.add_argument('--no-bcc', action='store_false', dest='use_bcc', help='Disable BCC (recipients will see each other)')
     parser.add_argument('--rate-limit', type=float, default=0.1, help='Seconds to wait between batches (default: 0.1 = 10 batches/sec)')
+    parser.add_argument('--personalized', action='store_true', help='Enable personalization (replace [NAME] and [EMAIL] placeholders with recipient data). CSV must have email and name columns.')
+    parser.add_argument('--generic-greeting', help='Generic greeting to use when name is not available (e.g., "Hi There!"). Used as fallback for [NAME] placeholder.')
     
     args = parser.parse_args()
     
@@ -860,16 +1045,6 @@ Examples:
     if not args.body and not args.body_file:
         parser.error("Either --body or --body-file is required")
     
-    # Get recipients (optional for preview)
-    recipients = []
-    if args.recipients_file:
-        recipients = load_recipients_from_file(args.recipients_file)
-    elif args.recipients:
-        recipients = args.recipients
-    elif args.preview:
-        # For preview, use a placeholder if no recipients specified
-        recipients = ['[Preview - No recipients specified]']
-    
     # Get email body
     body_text = args.body
     if args.body_file:
@@ -895,6 +1070,28 @@ Examples:
         except Exception as e:
             print(f"Error reading HTML body file: {e}")
             sys.exit(1)
+    
+    # Personalization is only enabled if explicitly requested
+    needs_personalization = args.personalized
+    
+    # Get recipients (optional for preview)
+    recipients = []
+    recipient_data = None
+    if args.recipients_file:
+        if needs_personalization:
+            recipient_data = load_recipients_from_file(args.recipients_file, include_names=True)
+            recipients = [r['email'] for r in recipient_data]
+        else:
+            recipients = load_recipients_from_file(args.recipients_file, include_names=False)
+    elif args.recipients:
+        recipients = args.recipients
+        if needs_personalization:
+            recipient_data = [{'email': r, 'name': ''} for r in recipients]
+    elif args.preview:
+        # For preview, use a placeholder if no recipients specified
+        recipients = ['[Preview - No recipients specified]']
+        if needs_personalization:
+            recipient_data = [{'email': '[Preview]', 'name': 'John Doe'}]
     
     # Get attachments
     attachments = args.attachment if args.attachment else None
@@ -923,7 +1120,14 @@ Examples:
         print()
         
         # Use batch sending for large lists (more than batch_size) or if explicitly requested
-        use_batch = len(recipients) > args.batch_size
+        use_batch = len(recipients) > args.batch_size or needs_personalization
+        
+        if needs_personalization:
+            print("✨ Personalization enabled: [NAME] and [EMAIL] placeholders will be replaced")
+            if recipient_data:
+                names_count = sum(1 for r in recipient_data if r.get('name', '').strip())
+                print(f"   Found names for {names_count}/{len(recipient_data)} recipients")
+            print()
         
         if attachments:
             # Attachments require send_email_with_attachments (doesn't support batch yet)
@@ -940,7 +1144,10 @@ Examples:
                     use_bcc=args.use_bcc,
                     rate_limit=args.rate_limit,
                     reply_to=args.reply_to,
-                    sender_name=args.sender_name
+                    sender_name=args.sender_name,
+                    personalized=needs_personalization,
+                    recipient_data=recipient_data,
+                    generic_greeting=args.generic_greeting
                 )
             else:
                 # Small list with attachments - use attachment method
@@ -966,21 +1173,35 @@ Examples:
                 use_bcc=args.use_bcc,
                 rate_limit=args.rate_limit,
                 reply_to=args.reply_to,
-                sender_name=args.sender_name
+                sender_name=args.sender_name,
+                personalized=needs_personalization,
+                recipient_data=recipient_data
             )
         else:
-            # Small list - send all at once or individually based on BCC setting
-            if args.use_bcc and len(recipients) > 1:
-                # For BCC privacy with small lists, send individual emails
+            # Small list - send all at once or individually based on BCC setting or personalization
+            if needs_personalization or (args.use_bcc and len(recipients) > 1):
+                # For personalized or BCC privacy with small lists, send individual emails
                 success_count = 0
                 fail_count = 0
-                for recipient in recipients:
+                for i, recipient in enumerate(recipients):
+                    # Personalize if needed
+                    personalized_subject = args.subject
+                    personalized_body_text = body_text
+                    personalized_body_html = body_html
+                    
+                    if needs_personalization and recipient_data:
+                        recipient_info = recipient_data[i] if i < len(recipient_data) else {'email': recipient, 'name': ''}
+                        personalized_subject = replace_template_placeholders(args.subject, recipient_info, args.generic_greeting)
+                        personalized_body_text = replace_template_placeholders(body_text, recipient_info, args.generic_greeting)
+                        if body_html:
+                            personalized_body_html = replace_template_placeholders(body_html, recipient_info, args.generic_greeting)
+                    
                     result = emailer.send_email(
                         sender=args.sender,
                         recipients=[recipient],  # Individual recipient
-                        subject=args.subject,
-                        body_text=body_text,
-                        body_html=body_html,
+                        subject=personalized_subject,
+                        body_text=personalized_body_text,
+                        body_html=personalized_body_html,
                         reply_to=args.reply_to,
                         bcc=None,  # No BCC needed since it's individual
                         sender_name=args.sender_name
@@ -1000,7 +1221,7 @@ Examples:
                     'failed': fail_count
                 }
             else:
-                # Send all at once (no BCC or single recipient)
+                # Send all at once (no BCC or single recipient, no personalization)
                 result = emailer.send_email(
                     sender=args.sender,
                     recipients=recipients,
