@@ -1,7 +1,7 @@
 #!/bin/bash
 # EC2 Custom Email Campaign Sender
 # Allows specifying template, recipient list, subject, sender, and UTM parameters
-# Usage: ./ec2_send_custom.sh <recipient_list> [template_name] [subject] [sender_email] [sender_name] [utm_source] [utm_medium] [utm_campaign]
+# Usage: ./ec2_send_custom.sh <recipient_list> [template_name] [subject] [sender_email] [sender_name] [utm_source] [utm_medium] [utm_campaign] [generic_greeting]
 
 set -e
 
@@ -45,6 +45,7 @@ SENDER_NAME=${5:-$DEFAULT_SENDER_NAME}
 UTM_SOURCE=${6:-}
 UTM_MEDIUM=${7:-}
 UTM_CAMPAIGN=${8:-}
+GENERIC_GREETING=${9:-}
 
 echo "📧 Custom Email Campaign"
 echo "========================"
@@ -72,6 +73,13 @@ rm -f /tmp/recipients.csv /tmp/email_template.txt /tmp/email_template.html
 aws s3 cp s3://$BUCKET/recipients/$RECIPIENT_LIST /tmp/recipients.csv --region $REGION --cache-control "no-cache"
 aws s3 cp s3://$BUCKET/templates/${TEMPLATE_NAME}.txt /tmp/email_template.txt --region $REGION --cache-control "no-cache"
 aws s3 cp s3://$BUCKET/templates/${TEMPLATE_NAME}.html /tmp/email_template.html --region $REGION --cache-control "no-cache"
+
+# Check if template contains [NAME] placeholder - if so, enable personalization
+NEEDS_PERSONALIZATION=false
+if grep -q "\[NAME\]" /tmp/email_template.txt 2>/dev/null || grep -q "\[NAME\]" /tmp/email_template.html 2>/dev/null; then
+    NEEDS_PERSONALIZATION=true
+    echo "✨ Template contains [NAME] placeholder - personalization will be enabled"
+fi
 
 # Add UTM parameters to HTML if provided
 if [ -n "$UTM_SOURCE" ] || [ -n "$UTM_MEDIUM" ] || [ -n "$UTM_CAMPAIGN" ]; then
@@ -148,17 +156,60 @@ echo "🚀 Sending emails..."
 echo "This may take 10-15 minutes for large batches..."
 echo ""
 
-python3 ses_emailer.py \
-  --sender "$SENDER" \
-  --sender-name "$SENDER_NAME" \
-  --recipients-file /tmp/recipients.csv \
-  --subject "$SUBJECT" \
-  --body-file /tmp/email_template.txt \
-  --body-html-file /tmp/email_template.html \
-  --region $REGION \
-  --batch-size 50 \
-  --use-bcc \
-  --rate-limit 0.1
+# Download ses_emailer.py if not present
+if [ ! -f ses_emailer.py ]; then
+    echo "📥 Downloading ses_emailer.py from S3..."
+    aws s3 cp s3://$BUCKET/scripts/ses_emailer.py ./ses_emailer.py --region $REGION
+    chmod +x ses_emailer.py
+fi
+
+# Build command with optional personalization
+if [ "$NEEDS_PERSONALIZATION" = true ]; then
+    if [ -n "$GENERIC_GREETING" ] && [ "$GENERIC_GREETING" != "" ]; then
+        echo "   Using generic greeting: \"$GENERIC_GREETING\""
+        python3 ses_emailer.py \
+          --sender "$SENDER" \
+          --reply-to creatorhelp@amaze.co \
+          --sender-name "$SENDER_NAME" \
+          --recipients-file /tmp/recipients.csv \
+          --subject "$SUBJECT" \
+          --body-file /tmp/email_template.txt \
+          --body-html-file /tmp/email_template.html \
+          --region $REGION \
+          --batch-size 50 \
+          --use-bcc \
+          --rate-limit 0.1 \
+          --personalized \
+          --generic-greeting "$GENERIC_GREETING"
+    else
+        python3 ses_emailer.py \
+          --sender "$SENDER" \
+          --reply-to creatorhelp@amaze.co \
+          --sender-name "$SENDER_NAME" \
+          --recipients-file /tmp/recipients.csv \
+          --subject "$SUBJECT" \
+          --body-file /tmp/email_template.txt \
+          --body-html-file /tmp/email_template.html \
+          --region $REGION \
+          --batch-size 50 \
+          --use-bcc \
+          --rate-limit 0.1 \
+          --personalized
+    fi
+else
+    python3 ses_emailer.py \
+      --sender "$SENDER" \
+      --reply-to creatorhelp@amaze.co \
+      --sender-name "$SENDER_NAME" \
+      --recipients-file /tmp/recipients.csv \
+      --subject "$SUBJECT" \
+      --body-file /tmp/email_template.txt \
+      --body-html-file /tmp/email_template.html \
+      --region $REGION \
+      --batch-size 50 \
+      --use-bcc \
+      --rate-limit 0.1
+fi
 
 echo ""
 echo "✅ Campaign complete!"

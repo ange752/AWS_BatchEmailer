@@ -321,20 +321,20 @@ class SESEmailer:
                             bcc=None,
                             sender_name=sender_name
                         )
-                    
-                    if result['success']:
-                        success_count += len(batch_recipients)
-                        print(f"  ✓ Batch {batch_num + 1} sent successfully")
-                    else:
-                        fail_count += len(batch_recipients)
-                        print(f"  ✗ Batch {batch_num + 1} failed: {result.get('error', 'Unknown error')}")
-                    
-                    results.append({
-                        'batch': batch_num + 1,
-                        'recipients': batch_recipients,
-                        'success': result['success'],
-                        'result': result
-                    })
+                        
+                        if result['success']:
+                            success_count += len(batch_recipients)
+                            print(f"  ✓ Batch {batch_num + 1} sent successfully")
+                        else:
+                            fail_count += len(batch_recipients)
+                            print(f"  ✗ Batch {batch_num + 1} failed: {result.get('error', 'Unknown error')}")
+                        
+                        results.append({
+                            'batch': batch_num + 1,
+                            'recipients': batch_recipients,
+                            'success': result['success'],
+                            'result': result
+                        })
                 
                 # Rate limiting - wait between batches (except for last batch)
                 if batch_num < total_batches - 1:
@@ -605,7 +605,10 @@ def preview_email(
     recipients: Optional[List[str]] = None,
     attachments: Optional[List[str]] = None,
     sender_name: Optional[str] = None,
-    open_browser: bool = True
+    open_browser: bool = True,
+    personalized: bool = False,
+    recipient_data: Optional[List[Dict[str, str]]] = None,
+    generic_greeting: Optional[str] = None
 ) -> None:
     """
     Preview email content before sending
@@ -617,7 +620,28 @@ def preview_email(
         sender: Sender email address (optional)
         recipients: List of recipients (optional)
         open_browser: Whether to open HTML preview in browser
+        personalized: Whether to show personalized content
+        recipient_data: List of recipient data for personalization
+        generic_greeting: Generic greeting for personalization
     """
+    # Personalize content for first recipient if personalization is enabled
+    preview_subject = subject
+    preview_body_text = body_text
+    preview_body_html = body_html
+    
+    if personalized and recipient_data and len(recipient_data) > 0:
+        first_recipient = recipient_data[0]
+        preview_subject = replace_template_placeholders(subject, first_recipient, generic_greeting)
+        preview_body_text = replace_template_placeholders(body_text, first_recipient, generic_greeting)
+        if body_html:
+            preview_body_html = replace_template_placeholders(body_html, first_recipient, generic_greeting)
+        print("✨ Showing personalized preview for first recipient")
+        if first_recipient.get('name'):
+            print(f"   Name: {first_recipient.get('name')}")
+        else:
+            print(f"   Name: (not provided - using generic greeting)")
+        print()
+    
     print("=" * 70)
     print("EMAIL PREVIEW")
     print("=" * 70)
@@ -628,8 +652,12 @@ def preview_email(
         else:
             print(f"From: {sender}")
     if recipients:
-        print(f"To: {', '.join(recipients)}")
-    print(f"Subject: {subject}")
+        # Show first recipient if personalized, otherwise show all
+        if personalized and recipient_data and len(recipient_data) > 0:
+            print(f"To: {recipient_data[0]['email']} (showing first recipient)")
+        else:
+            print(f"To: {', '.join(recipients)}")
+    print(f"Subject: {preview_subject}")
     if attachments:
         print(f"Attachments: {len(attachments)} file(s)")
         for att in attachments:
@@ -641,10 +669,10 @@ def preview_email(
     print("=" * 70)
     print("\nPLAIN TEXT VERSION:")
     print("-" * 70)
-    print(body_text)
+    print(preview_body_text)
     print("-" * 70)
     
-    if body_html:
+    if preview_body_html:
         print("\nHTML VERSION:")
         print("(Opening in browser...)\n")
         
@@ -653,7 +681,7 @@ def preview_email(
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Email Preview - {subject}</title>
+    <title>Email Preview - {preview_subject}</title>
     <style>
         body {{
             font-family: Arial, sans-serif;
@@ -706,11 +734,11 @@ def preview_email(
     </div>
     <div class="preview-info">
         <strong>From:</strong> {f'{sender_name} <{sender}>' if sender_name and sender else sender or 'Not specified'}<br>
-        <strong>To:</strong> {', '.join(recipients) if recipients else 'Not specified'}<br>
-        <strong>Subject:</strong> {subject}
+        <strong>To:</strong> {recipient_data[0]['email'] if personalized and recipient_data and len(recipient_data) > 0 else (', '.join(recipients) if recipients else 'Not specified')} {'(showing first recipient)' if personalized and recipient_data and len(recipient_data) > 0 else ''}<br>
+        <strong>Subject:</strong> {preview_subject}
     </div>
     <div class="email-content">
-        {body_html}
+        {preview_body_html}
     </div>
 </body>
 </html>"""
@@ -1107,7 +1135,10 @@ Examples:
             recipients=recipients if recipients != ['[Preview - No recipients specified]'] else None,
             attachments=attachments,
             sender_name=args.sender_name,
-            open_browser=True
+            open_browser=True,
+            personalized=needs_personalization,
+            recipient_data=recipient_data if needs_personalization else None,
+            generic_greeting=args.generic_greeting
         )
         print("\n✓ Preview complete. Email was NOT sent.")
         print("Remove --preview flag to actually send the email.")
@@ -1175,7 +1206,8 @@ Examples:
                 reply_to=args.reply_to,
                 sender_name=args.sender_name,
                 personalized=needs_personalization,
-                recipient_data=recipient_data
+                recipient_data=recipient_data,
+                generic_greeting=args.generic_greeting
             )
         else:
             # Small list - send all at once or individually based on BCC setting or personalization
