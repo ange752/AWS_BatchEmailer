@@ -1,7 +1,8 @@
 #!/bin/bash
 # Dry run command for Tax Email List with 1099_Tax_Reminder template
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-python3 ses_emailer.py \
+python3 "$SCRIPT_DIR/ses_emailer.py" \
   --sender creatorhelp@amaze.co \
   --sender-name "Creator Help" \
   --recipients-file TaxEmailList_1.csv \

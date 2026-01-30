@@ -1,23 +1,25 @@
 #!/bin/bash
 # Script to package and deploy to AWS Lambda
+# Run from repo root: ./scripts/deploy_to_lambda.sh
 
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 echo "📦 Packaging Lambda deployment..."
 
 # Create deployment directory
-mkdir -p lambda_package
-cd lambda_package
+mkdir -p "$REPO_ROOT/lambda_package"
+cd "$REPO_ROOT/lambda_package"
 
-# Copy Python files
-cp ../ses_emailer.py .
-cp ../lambda_handler.py .
+# Copy Python files from scripts/
+cp "$REPO_ROOT/scripts/ses_emailer.py" .
+cp "$REPO_ROOT/scripts/lambda_handler.py" .
 
 # Install dependencies
 pip3 install boto3 botocore -t .
 
 # Create zip file
-zip -r ../lambda-deployment.zip . -x "*.pyc" "__pycache__/*" "*.dist-info/*"
+zip -r "$REPO_ROOT/lambda-deployment.zip" . -x "*.pyc" "__pycache__/*" "*.dist-info/*"
 
-cd ..
+cd "$REPO_ROOT"
 echo "✅ Package created: lambda-deployment.zip"
 echo ""
 echo "Next steps:"

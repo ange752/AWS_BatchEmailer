@@ -78,7 +78,8 @@ fi
 
 # Test 8: Script functionality
 echo "8. Testing script functionality..."
-if python3 ses_emailer.py --help &> /dev/null; then
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if python3 "$SCRIPT_DIR/ses_emailer.py" --help &> /dev/null; then
     echo "   ✅ Script works"
 else
     echo "   ❌ Script error"

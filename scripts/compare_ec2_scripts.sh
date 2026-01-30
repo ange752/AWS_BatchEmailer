@@ -13,8 +13,8 @@ REGION="${REGION:-us-west-2}"
 S3_BUCKET="${S3_BUCKET:-amaze-aws-emailer}"
 S3_SCRIPT_DIR="${S3_SCRIPT_DIR:-scripts}"
 
-# Local script directory
-LOCAL_DIR="$(pwd)"
+# Local script directory (where this script lives = scripts/)
+LOCAL_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "🔍 Comparing Local Scripts with EC2 Instance"
 echo "============================================="

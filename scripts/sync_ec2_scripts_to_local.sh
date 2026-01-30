@@ -14,7 +14,8 @@ S3_BUCKET="${S3_BUCKET:-amaze-aws-emailer}"
 S3_SCRIPT_DIR="${S3_SCRIPT_DIR:-scripts}"
 
 # Local directory to save scripts
-LOCAL_DIR="$(pwd)"
+# Where this script lives = scripts/
+LOCAL_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="${LOCAL_DIR}/ec2_scripts_backup_$(date +%Y%m%d_%H%M%S)"
 
 # Scripts to sync

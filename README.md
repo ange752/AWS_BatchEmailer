@@ -2,6 +2,12 @@
 
 A simple Python script to send mass emails using AWS SES (Simple Email Service).
 
+## Repository structure
+
+- **`scripts/`** – Main scripts: `ses_emailer.py`, EC2/send/upload scripts (`.sh`, `.py`). Run from repo root, e.g. `./scripts/upload_campaign_to_s3.sh Howie_Order` or `python3 scripts/ses_emailer.py ...`.
+- **`docs/`** – Guides and tutorials (setup, EC2, Lambda, dry run, etc.).
+- **Root** – `README.md`, `requirements.txt`, `.gitignore`. Templates and recipient lists live on S3; keep CSVs/templates out of the repo.
+
 ## Prerequisites
 
 1. **AWS Account**: You need an AWS account with SES access
@@ -28,7 +34,7 @@ pip install -r requirements.txt
 Send email to multiple recipients:
 
 ```bash
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients recipient1@example.com recipient2@example.com \
   --subject "Hello from AWS SES" \
@@ -83,14 +89,14 @@ The script automatically detects common email column names: `email`, `Email`, `E
 
 ```bash
 # Using CSV file
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients-file recipients.csv \
   --subject "Hello" \
   --body "Test email"
 
 # Using JSON file
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients-file recipients.json \
   --subject "Hello" \
@@ -102,7 +108,7 @@ python ses_emailer.py \
 Send HTML formatted email (inline):
 
 ```bash
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients user@example.com \
   --subject "HTML Email" \
@@ -116,14 +122,14 @@ For better formatting, especially with HTML emails, use template files:
 
 ```bash
 # Plain text from file
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients-file recipients.csv \
   --subject "Hello" \
   --body-file email_body.txt
 
 # HTML email from files (recommended)
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients-file recipients.csv \
   --subject "Hello" \
@@ -133,7 +139,7 @@ python ses_emailer.py \
 
 **Note:** Always provide both plain text and HTML versions. Plain text is used as a fallback for email clients that don't support HTML.
 
-See `EMAIL_FORMATTING_GUIDE.md` for detailed formatting guidelines and examples.
+See `docs/EMAIL_FORMATTING_GUIDE.md` for detailed formatting guidelines and examples.
 
 ### Preview Email Before Sending
 
@@ -141,7 +147,7 @@ Preview your email before sending to see exactly how it will appear:
 
 ```bash
 # Preview with HTML
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients-file test_recipients.csv \
   --subject "Hello" \
@@ -164,7 +170,7 @@ Attach files to your emails:
 
 ```bash
 # Single attachment
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients-file test_recipients.csv \
   --subject "Document Attached" \
@@ -172,7 +178,7 @@ python ses_emailer.py \
   --attachment document.pdf
 
 # Multiple attachments
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients-file test_recipients.csv \
   --subject "Files Attached" \
@@ -199,7 +205,7 @@ python ses_emailer.py \
 Before sending emails, verify your sender email address:
 
 ```bash
-python ses_emailer.py --verify your-email@example.com
+python3 scripts/ses_emailer.py --verify your-email@example.com
 ```
 
 Check your email inbox and click the verification link from AWS.
@@ -207,7 +213,7 @@ Check your email inbox and click the verification link from AWS.
 ### Specify AWS Region
 
 ```bash
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --region us-west-2 \
   --sender your-email@example.com \
   --recipients user@example.com \
@@ -218,7 +224,7 @@ python ses_emailer.py \
 ### Add Reply-To Address
 
 ```bash
-python ses_emailer.py \
+python3 scripts/ses_emailer.py \
   --sender your-email@example.com \
   --recipients user@example.com \
   --subject "Hello" \
@@ -263,6 +269,9 @@ python ses_emailer.py \
 You can also use the `SESEmailer` class in your own Python scripts:
 
 ```python
+# From repo root, add scripts/ to path or run from scripts/
+import sys
+sys.path.insert(0, 'scripts')
 from ses_emailer import SESEmailer
 
 # Initialize

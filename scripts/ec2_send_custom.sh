@@ -4,6 +4,7 @@
 # Usage: ./ec2_send_custom.sh <recipient_list> [template_name] [subject] [sender_email] [sender_name] [utm_source] [utm_medium] [utm_campaign]
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Configuration
 BUCKET="amaze-aws-emailer"
@@ -159,7 +160,7 @@ if [ "$PREVIEW_MODE" = true ]; then
     echo "=================================================="
     echo ""
     
-    python3 ses_emailer.py \
+    python3 "$SCRIPT_DIR/ses_emailer.py" \
       --sender "$SENDER" \
       --sender-name "$SENDER_NAME" \
       --recipients-file /tmp/recipients.csv \
@@ -177,7 +178,7 @@ else
     echo "This may take 10-15 minutes for large batches..."
     echo ""
     
-    python3 ses_emailer.py \
+    python3 "$SCRIPT_DIR/ses_emailer.py" \
       --sender "$SENDER" \
       --sender-name "$SENDER_NAME" \
       --recipients-file /tmp/recipients.csv \

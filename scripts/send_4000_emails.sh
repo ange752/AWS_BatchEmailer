@@ -3,6 +3,7 @@
 # Run this on your EC2 instance after setup
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 BUCKET="your-bucket-name"  # Update with your S3 bucket
 REGION="us-west-2"
@@ -36,7 +37,7 @@ echo "🚀 Sending emails..."
 echo "This may take 10-15 minutes for 4,000 emails..."
 echo ""
 
-python3 ses_emailer.py \
+python3 "$SCRIPT_DIR/ses_emailer.py" \
   --sender "$SENDER" \
   --sender-name "$SENDER_NAME" \
   --recipients-file /tmp/recipients.csv \

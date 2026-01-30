@@ -4,6 +4,7 @@
 # Usage: ./ec2_send_campaign.sh [batch_num] [template_name] [recipient_list]
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Configuration
 BUCKET="amaze-aws-emailer"
@@ -50,7 +51,7 @@ echo "🚀 Sending emails..."
 echo "This may take 10-15 minutes for large batches..."
 echo ""
 
-python3 ses_emailer.py \
+python3 "$SCRIPT_DIR/ses_emailer.py" \
   --sender "$SENDER" \
   --sender-name "$SENDER_NAME" \
   --recipients-file /tmp/recipients.csv \

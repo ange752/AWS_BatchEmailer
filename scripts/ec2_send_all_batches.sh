@@ -3,6 +3,7 @@
 # Run this on EC2 to send to all recipient batches
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 BUCKET="amaze-aws-emailer"
 REGION="us-west-2"
@@ -19,7 +20,7 @@ for batch in 01 02 03 04; do
     
     # Check if batch file exists in S3
     if aws s3 ls s3://$BUCKET/recipients/recipients_batch_$batch.csv --region $REGION &> /dev/null; then
-        ./ec2_send_campaign.sh $batch
+        "$SCRIPT_DIR/ec2_send_campaign.sh" $batch
         echo ""
         echo "⏸️  Waiting 30 seconds before next batch..."
         sleep 30

@@ -1,5 +1,6 @@
 #!/bin/bash
 # Run EMAIL3 template test with test_recipients.csv
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Template name (adjust if different)
 TEMPLATE_NAME="1099_TAX_EMAIL3"
@@ -28,7 +29,7 @@ echo "🧪 Testing EMAIL3 template with test recipients (PREVIEW MODE)"
 echo "=============================================================="
 echo ""
 
-python3 ses_emailer.py \
+python3 "$SCRIPT_DIR/ses_emailer.py" \
   --sender studio_support@amaze.co \
   --sender-name "Amaze Software" \
   --recipients-file test_recipients.csv \
@@ -41,7 +42,7 @@ echo ""
 echo "✅ Preview complete!"
 echo ""
 echo "To actually send (remove --preview):"
-echo "python3 ses_emailer.py \\"
+echo "python3 scripts/ses_emailer.py \\"
 echo "  --sender studio_support@amaze.co \\"
 echo "  --recipients-file test_recipients.csv \\"
 echo "  --subject \"1099 Tax Form Available\" \\"

@@ -1,9 +1,9 @@
 #!/bin/bash
 # Universal campaign upload: upload recipients + template (.txt and optional .html) to S3 for EC2.
-# Usage: ./upload_campaign_to_s3.sh <campaign_name>
-# Example: ./upload_campaign_to_s3.sh Howie_Order
+# Run from repo root: ./scripts/upload_campaign_to_s3.sh <campaign_name>
+# Example: ./scripts/upload_campaign_to_s3.sh Howie_Order
 #
-# Expects in current directory:
+# Expects in current directory (repo root):
 #   {campaign_name}_recipients.csv  -> s3 recipients/
 #   {campaign_name}.txt or {campaign_name}_Copy.txt  -> s3 templates/{campaign_name}.txt
 #   {campaign_name}.html (optional) -> s3 templates/{campaign_name}.html
