@@ -15,10 +15,14 @@ ENV/
 *.key
 aws-credentials.txt
 lambda_config.json
+.env
+.env.*
+!.env.example
 
-# Recipient Lists (stored on S3 - DO NOT COMMIT!)
+# Recipient Lists & example data (stored on S3 - DO NOT COMMIT!)
 *.csv
-!recipients_example.json
+recipients_example.json
+recipients_example.csv
 
 # Lambda Package (Too large, should be built)
 lambda_package/
