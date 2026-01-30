@@ -16,12 +16,9 @@ ENV/
 aws-credentials.txt
 lambda_config.json
 
-# Recipient Lists (Contains Personal Data - DO NOT COMMIT!)
+# Recipient Lists (stored on S3 - DO NOT COMMIT!)
 *.csv
-!recipients_example.csv
 !recipients_example.json
-!recipients_simple.csv
-!recipients_with_names.csv
 
 # Lambda Package (Too large, should be built)
 lambda_package/
@@ -58,6 +55,18 @@ logs/
 tmp/
 temp/
 *.tmp
+
+# Email templates & bodies (stored on S3)
+1099_*.html
+1099_*.txt
+Howie_Order*
+*_template.html
+*_template.txt
+email_template.html
+email_template.txt
+email_body_example.html
+email_body_example.txt
+email_template_simple.html
 
 # Large binary files
 *.pkg
