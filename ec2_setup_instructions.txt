@@ -3,14 +3,14 @@ EC2 Instance Setup Instructions
 
 Instance Details:
   Instance ID: i-0462951dc6f221468
-  Public IP: 35.166.193.105
+  Public IP: 54.189.152.124
   Instance Type: t3.small
   Region: us-west-2
 
 Next Steps:
 1. Wait 1-2 minutes for instance to fully initialize
 2. SSH into the instance:
-   ssh -i oasis-dev-20220131.pem ec2-user@35.166.193.105
+   ssh -i oasis-dev-20220131.pem ec2-user@54.189.152.124
 
 3. Once connected, run these commands:
 

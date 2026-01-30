@@ -12,13 +12,23 @@ DEFAULT_SENDER="studio_support@amaze.co"
 DEFAULT_SENDER_NAME="Amaze Software"
 DEFAULT_SUBJECT="Important update: Amaze Studio will shut down December 15th, 2025"
 
+# Check for --preview flag
+PREVIEW_MODE=false
+if [[ "$1" == "--preview" ]] || [[ "$1" == "-p" ]]; then
+    PREVIEW_MODE=true
+    shift  # Remove --preview from arguments
+fi
+
 # Get parameters
 if [ -z "$1" ]; then
-    echo "Usage: $0 <recipient_list> [template_name] [subject] [sender_email] [sender_name] [utm_source] [utm_medium] [utm_campaign]"
+    echo "Usage: $0 [--preview] <recipient_list> [template_name] [subject] [sender_email] [sender_name] [utm_source] [utm_medium] [utm_campaign]"
+    echo ""
+    echo "Options:"
+    echo "  --preview, -p    Preview mode (dry run - does not send emails)"
     echo ""
     echo "Examples:"
     echo "  $0 recipients_batch_01.csv"
-    echo "  $0 recipients_batch_01.csv email_template"
+    echo "  $0 --preview recipients_batch_01.csv email_template"
     echo "  $0 recipients_batch_01.csv email_template \"Custom Subject\""
     echo "  $0 recipients_batch_01.csv email_template \"Custom Subject\" support@example.com"
     echo "  $0 recipients_batch_01.csv email_template \"Custom Subject\" support@example.com \"Company Name\""
@@ -143,24 +153,44 @@ RECIPIENT_COUNT=$(tail -n +2 /tmp/recipients.csv 2>/dev/null | wc -l | tr -d ' '
 echo "✅ Found $RECIPIENT_COUNT recipients"
 echo ""
 
-# Send emails
-echo "🚀 Sending emails..."
-echo "This may take 10-15 minutes for large batches..."
-echo ""
-
-python3 ses_emailer.py \
-  --sender "$SENDER" \
-  --sender-name "$SENDER_NAME" \
-  --recipients-file /tmp/recipients.csv \
-  --subject "$SUBJECT" \
-  --body-file /tmp/email_template.txt \
-  --body-html-file /tmp/email_template.html \
-  --region $REGION \
-  --batch-size 50 \
-  --use-bcc \
-  --rate-limit 0.1
-
-echo ""
-echo "✅ Campaign complete!"
-echo "📊 Check logs above for details"
+# Send emails or preview
+if [ "$PREVIEW_MODE" = true ]; then
+    echo "🔍 PREVIEW MODE (Dry Run - No emails will be sent)"
+    echo "=================================================="
+    echo ""
+    
+    python3 ses_emailer.py \
+      --sender "$SENDER" \
+      --sender-name "$SENDER_NAME" \
+      --recipients-file /tmp/recipients.csv \
+      --subject "$SUBJECT" \
+      --body-file /tmp/email_template.txt \
+      --body-html-file /tmp/email_template.html \
+      --region $REGION \
+      --preview
+    
+    echo ""
+    echo "✅ Preview complete! No emails were sent."
+    echo "📊 Remove --preview flag to actually send emails"
+else
+    echo "🚀 Sending emails..."
+    echo "This may take 10-15 minutes for large batches..."
+    echo ""
+    
+    python3 ses_emailer.py \
+      --sender "$SENDER" \
+      --sender-name "$SENDER_NAME" \
+      --recipients-file /tmp/recipients.csv \
+      --subject "$SUBJECT" \
+      --body-file /tmp/email_template.txt \
+      --body-html-file /tmp/email_template.html \
+      --region $REGION \
+      --batch-size 50 \
+      --use-bcc \
+      --rate-limit 0.1
+    
+    echo ""
+    echo "✅ Campaign complete!"
+    echo "📊 Check logs above for details"
+fi
 

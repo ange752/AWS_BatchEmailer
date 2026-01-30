@@ -32,6 +32,7 @@ lambda-deployment.zip
 *.backup
 *.bak
 *.old
+*.ec2
 
 # OS files
 .DS_Store
