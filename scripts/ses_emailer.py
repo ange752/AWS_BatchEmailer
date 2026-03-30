@@ -5,6 +5,7 @@ A simple script to send mass emails using AWS SES (Simple Email Service)
 """
 
 import boto3
+import html as html_module
 import json
 import csv
 import sys
@@ -597,6 +598,17 @@ class SESEmailer:
             return {'success': False, 'error': str(e)}
 
 
+def _preview_recipients_html(recipients: Optional[List[str]]) -> str:
+    """Short summary for preview HTML when many recipients."""
+    if not recipients:
+        return "Not specified"
+    n = len(recipients)
+    if n <= 10:
+        return html_module.escape(", ".join(recipients))
+    sample = ", ".join(recipients[:5])
+    return html_module.escape(f"{n} addresses (first 5: {sample}, …)")
+
+
 def preview_email(
     subject: str,
     body_text: str,
@@ -628,7 +640,12 @@ def preview_email(
         else:
             print(f"From: {sender}")
     if recipients:
-        print(f"To: {', '.join(recipients)}")
+        n = len(recipients)
+        if n <= 5:
+            print(f"To ({n}): {', '.join(recipients)}")
+        else:
+            sample = ", ".join(recipients[:3])
+            print(f"To: {n} recipients (showing first 3: {sample}, …)")
     print(f"Subject: {subject}")
     if attachments:
         print(f"Attachments: {len(attachments)} file(s)")
@@ -698,7 +715,8 @@ def preview_email(
 <body>
     <div class="warning">
         <strong>⚠️ PREVIEW MODE</strong><br>
-        This is how your email will appear to recipients. This preview will not be sent.
+        This is how your email will appear to recipients. This preview will not be sent.<br>
+        <em>When you send for real, each address gets its own message (recipients do not see each other).</em>
     </div>
     
     <div class="preview-header">
@@ -706,7 +724,7 @@ def preview_email(
     </div>
     <div class="preview-info">
         <strong>From:</strong> {f'{sender_name} <{sender}>' if sender_name and sender else sender or 'Not specified'}<br>
-        <strong>To:</strong> {', '.join(recipients) if recipients else 'Not specified'}<br>
+        <strong>To:</strong> {_preview_recipients_html(recipients)}<br>
         <strong>Subject:</strong> {subject}
     </div>
     <div class="email-content">
@@ -1110,6 +1128,8 @@ Examples:
             open_browser=True
         )
         print("\n✓ Preview complete. Email was NOT sent.")
+        if recipients and len(recipients) > 1:
+            print(f"   ({len(recipients)} separate emails will be sent when you remove --preview.)")
         print("Remove --preview flag to actually send the email.")
     else:
         # Send email
@@ -1119,8 +1139,13 @@ Examples:
             print(f"Attachments: {len(attachments)} file(s)")
         print()
         
-        # Use batch sending for large lists (more than batch_size) or if explicitly requested
-        use_batch = len(recipients) > args.batch_size or needs_personalization
+        # Batch pipeline: large lists, personalization, or any multi-recipient send without attachments
+        # (shows per-batch progress; each recipient still gets an individual email when use_bcc is on).
+        use_batch = (
+            needs_personalization
+            or len(recipients) > args.batch_size
+            or (len(recipients) > 1 and not attachments)
+        )
         
         if needs_personalization:
             print("✨ Personalization enabled: [NAME] and [EMAIL] placeholders will be replaced")
