@@ -1,20 +1,22 @@
 #!/bin/bash
 # Universal campaign upload: upload recipients + template (.txt and optional .html) to S3 for EC2.
-# Run from repo root: ./scripts/upload_campaign_to_s3.sh <campaign_name>
+# Run from repo root: ./scripts/upload_campaign_to_s3.sh <campaign_name> [recipients.csv]
 # Example: ./scripts/upload_campaign_to_s3.sh Howie_Order
+# Example: ./scripts/upload_campaign_to_s3.sh BossBabyBrody BossBabyBrodyMassEmail.csv
 #
 # Expects in current directory (repo root):
-#   {campaign_name}_recipients.csv  -> s3 recipients/
+#   {campaign_name}_recipients.csv (or optional second arg)  -> s3 recipients/
 #   {campaign_name}.txt or {campaign_name}_Copy.txt  -> s3 templates/{campaign_name}.txt
 #   {campaign_name}.html (optional) -> s3 templates/{campaign_name}.html
 
 set -e
 
-NAME="${1:?Usage: $0 <campaign_name>   Example: $0 Howie_Order}"
+NAME="${1:?Usage: $0 <campaign_name> [recipients.csv]   Example: $0 Howie_Order}"
 BUCKET="${BUCKET:-amaze-aws-emailer}"
 REGION="${REGION:-us-west-2}"
 
-RECIPIENTS="${NAME}_recipients.csv"
+# Optional second arg: custom recipient list filename (default: {NAME}_recipients.csv)
+RECIPIENTS="${2:-${NAME}_recipients.csv}"
 TXT_S3="${NAME}.txt"
 HTML_S3="${NAME}.html"
 
@@ -72,8 +74,8 @@ fi
 echo "All set. On EC2, run:"
 echo ""
 echo "  # Dry run (preview only):"
-echo "  ./ec2_send_custom.sh --preview $RECIPIENTS $NAME \"<subject>\" <sender_email> \"<sender_name>\""
+echo "  ./ec2_send_custom.sh --preview $(basename "$RECIPIENTS") $NAME \"<subject>\" <sender_email> \"<sender_name>\""
 echo ""
 echo "  # Send for real:"
-echo "  ./ec2_send_custom.sh $RECIPIENTS $NAME \"<subject>\" <sender_email> \"<sender_name>\""
+echo "  ./ec2_send_custom.sh $(basename "$RECIPIENTS") $NAME \"<subject>\" <sender_email> \"<sender_name>\""
 echo ""

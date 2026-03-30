@@ -22,10 +22,16 @@ A simple Python script to send mass emails using AWS SES (Simple Email Service).
 
 ## Installation
 
-1. Install Python dependencies:
+On macOS with Homebrew Python, use a virtual environment (system Python blocks `pip install` globally):
+
 ```bash
+cd /path/to/AWS_BatchEmailer
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+Then use `python` / `python3` from that shell, or call `.venv/bin/python3 scripts/ses_emailer.py ...` without activating.
 
 ## Usage
 
